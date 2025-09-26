@@ -1,5 +1,5 @@
 import express from 'express';
-import reportRoutes from './routes/reportRoutes.js';
+import reportRoutes from './routes/report.routes.js';
 import 'dotenv/config'; 
 
 const app = express();

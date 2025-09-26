@@ -84,7 +84,7 @@ ${reportText}
       },
     });
 
-    console.log(result.text);
+    // console.log(result.text);
   
     
     const responseText = result.text?.trim();
