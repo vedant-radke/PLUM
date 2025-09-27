@@ -1,7 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import "dotenv/config";
 
-
 const medicalReportSchema = {
   type: "object",
   properties: {
@@ -33,23 +32,20 @@ const medicalReportSchema = {
   required: ["tests", "summary", "status"],
 };
 
-
-
 const genAI = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
 /**
- * @param {string} reportText 
- * @returns {Promise<object>} 
+ * @param {string} reportText
+ * @returns {Promise<object>}
  */
 export async function processReportWithGemini(reportText) {
   if (!reportText) {
     return { status: "error", reason: "Input text is empty." };
   }
 
-
-const prompt = `
+  const prompt = `
 You are a highly accurate and safety-focused medical report extraction and simplification assistant.
 Analyze the following raw text.
 
@@ -73,7 +69,6 @@ ${reportText}
 ---
 `;
 
-
   try {
     const result = await genAI.models.generateContent({
       model: "gemini-2.5-flash",
@@ -85,8 +80,7 @@ ${reportText}
     });
 
     // console.log(result.text);
-  
-    
+
     const responseText = result.text?.trim();
     if (!responseText) {
       return {
