@@ -12,7 +12,7 @@ app.use('/api', reportRoutes);
 
 // Route
 app.get('/', (req, res) => {
-    res.send('AI-Powered Medical Report Simplifier Service is running. Use POST /api/simplify-report.');
+    res.send('AI-Powered Medical Report Simplifier Service is running. Use POST /api/simplify.');
 });
 
 app.listen(PORT, () => {
