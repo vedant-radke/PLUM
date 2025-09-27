@@ -1,7 +1,8 @@
 import Tesseract from "tesseract.js";
 import { processReportWithGemini } from "../services/aiService.js";
+import stringSimilarity from "string-similarity";
 
-// OCR function
+
 async function extractTextFromImage(imageBuffer) {
   try {
     console.log("Running Tesseract OCR...");
@@ -9,18 +10,17 @@ async function extractTextFromImage(imageBuffer) {
       data: { text, confidence },
     } = await Tesseract.recognize(imageBuffer, "eng");
 
-    // throw error for confidence lower than 60
+    // Throw error if confidence too low
     if (confidence < 60) {
       const err = new Error(
         "Low OCR confidence. Please upload a clearer file/image."
       );
-      err.type = "low_confidence"; // flag
+      err.type = "low_confidence";
       throw err;
     }
 
-    // console.log(data);
-    console.log("OCR successful. Extracted text length:", text.length);
-    console.log("OCR successful. Confidence:", confidence);
+    console.log("OCR successful. Text length:", text.length);
+    console.log("OCR confidence:", confidence);
     console.log(text);
 
     return text;
@@ -30,39 +30,54 @@ async function extractTextFromImage(imageBuffer) {
   }
 }
 
-// --- Guardrail Function ---
+
 function detectHallucinations(rawText, aiOutput) {
   if (!aiOutput?.tests || !Array.isArray(aiOutput.tests)) {
     return { status: "error", reason: "invalid AI output" };
   }
 
-  const textLower = rawText.toLowerCase();
-  const foundTests = aiOutput.tests.filter((t) =>
-    textLower.includes(t.name.toLowerCase())
-  );
+  const ocrWords = rawText.toLowerCase().split(/\W+/).filter(word => word.length > 0);
+  const ocrText = rawText.toLowerCase();
+  console.log("OCR words:", ocrWords);
 
-  if (foundTests.length !== aiOutput.tests.length) {
+  for (const test of aiOutput.tests) {
+    const testName = test.name.toLowerCase();
+    console.log("Testing:", testName);
+
+    // Method 1: Check if test name exists in OCR text
+    if (ocrText.includes(testName)) {
+      console.log(`Found exact match for: ${testName}`);
+      continue;
+    }
+
+    // Method 2: check if all words in test name exist in OCR
+    const testWords = testName.split(/\s+/).filter(word => word.length > 0);
+    const allWordsFound = testWords.every(testWord => {
+      // exact match
+      if (ocrWords.includes(testWord)) {
+        return true;
+      }
+      
+      // fuzzy match 
+      const { bestMatch } = stringSimilarity.findBestMatch(testWord, ocrWords);
+      return bestMatch.rating >= 0.4; 
+    });
+
+    if (allWordsFound) {
+      console.log(`All words found for: ${testName}`);
+      continue;
+    }
+
+    // If no word matched -> hallucination
+    console.log(`No match found for: ${testName}`);
     return {
       status: "unprocessed",
-      reason: "hallucinated tests not present in input",
-    };
-  }
-
-  // Check if AI invented ranges
-  for (const test of aiOutput.tests) {
-    if (
-      test.referenceRange &&
-      !textLower.includes(test.referenceRange.toLowerCase())
-    ) {
-      return {
-        status: "unprocessed",
-        reason: "hallucinated data not present in input",
-      };
+      reason: `hallucinated test or OCR too inaccurate: ${test.name}`,
     }
   }
 
   return { status: "ok" };
-}
+} 
 
 export async function simplifyReport(req, res) {
   let rawText = "";
@@ -81,7 +96,10 @@ export async function simplifyReport(req, res) {
           message: e.message,
         });
       }
-      return res.status(500).json({ status: "error", message: e.message });
+      return res.status(500).json({
+        status: "error",
+        message: e.message,
+      });
     }
   } else if (req.body.report_text) {
     rawText = req.body.report_text;
@@ -105,14 +123,15 @@ export async function simplifyReport(req, res) {
 
   try {
     const finalOutput = await processReportWithGemini(rawText);
+
     if (finalOutput.status === "error") {
       return res.status(500).json(finalOutput);
     }
 
-    // --- Apply Guardrail ---
+    // --- Guardrail Check ---
     const guardrailCheck = detectHallucinations(rawText, finalOutput);
     if (guardrailCheck.status !== "ok") {
-      return res.json(guardrailCheck); // Exit early if hallucination found
+      return res.json(guardrailCheck);
     }
 
     res.json(finalOutput);
