@@ -21,7 +21,7 @@ async function extractTextFromImage(imageBuffer) {
 
     console.log("OCR successful. Text length:", text.length);
     console.log("OCR confidence:", confidence);
-    console.log(text);
+ 
 
     return text;
   } catch (error) {
@@ -38,7 +38,7 @@ function detectHallucinations(rawText, aiOutput) {
 
   const ocrWords = rawText.toLowerCase().split(/\W+/).filter(word => word.length > 0);
   const ocrText = rawText.toLowerCase();
-  console.log("OCR words:", ocrWords);
+ 
 
   for (const test of aiOutput.tests) {
     const testName = test.name.toLowerCase();
@@ -67,6 +67,7 @@ function detectHallucinations(rawText, aiOutput) {
       console.log(`All words found for: ${testName}`);
       continue;
     }
+    
 
     // If no word matched -> hallucination
     console.log(`No match found for: ${testName}`);
